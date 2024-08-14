@@ -542,6 +542,9 @@ add_custom_target(instances DEPENDS utility;${CK_DEVICE_INSTANCES}  SOURCES ${IN
 if(CK_BUILD_HOST_LIB)
  if(GPU_TARGETS MATCHES "gfx9")
     add_subdirectory(codegen)
+    rocm_package_setup_component(ck_host
+        LIBRARY_NAME composablekernel
+        PACKAGE_NAME ck_host)
  endif()
 else()
  add_subdirectory(library)

@@ -41,9 +41,9 @@ target_include_directories(ck_host SYSTEM PRIVATE
 
 target_link_libraries(ck_host PRIVATE $<BUILD_INTERFACE:ck_headers>)
 
-set_target_properties(ck_host PROPERTIES
-	LINKER_LANGUAGE CXX
-        POSITION_INDEPENDENT_CODE ON)
+# set_target_properties(ck_host PROPERTIES
+# 	LINKER_LANGUAGE CXX
+#         POSITION_INDEPENDENT_CODE ON)
 
 target_include_directories(ck_host PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
