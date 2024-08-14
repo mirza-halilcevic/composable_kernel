@@ -30,6 +30,8 @@ find_package(Python3 3.6 COMPONENTS Interpreter REQUIRED)
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
+option(CK_BUILD_HOST_LIB, "Only build the CK JIT Helper Library" OFF)
+
 if (DTYPES)
     add_definitions(-DDTYPES)
     if (DTYPES MATCHES "int8")
@@ -536,40 +538,47 @@ ENDIF()
 ENDFOREACH()
 
 add_custom_target(instances DEPENDS utility;${CK_DEVICE_INSTANCES}  SOURCES ${INSTANCE_FILES})
-add_subdirectory(library)
 
-if(NOT DEFINED INSTANCES_ONLY)
- if(NOT DEFINED PROFILER_ONLY)
-   rocm_package_setup_component(tests
-        LIBRARY_NAME composablekernel
-        PACKAGE_NAME tests # Prevent -static suffix on package name
-   )
-
-   rocm_package_setup_component(examples
-        LIBRARY_NAME composablekernel
-        PACKAGE_NAME examples
-   )
-   add_subdirectory(example)
-   if(GPU_TARGETS MATCHES "gfx9" AND NOT INSTANCES_ONLY)
-      add_subdirectory(codegen)
-   endif()
-   if(BUILD_TESTING)
-      add_subdirectory(test)
-   endif()
-
-   rocm_package_setup_component(profiler
-        LIBRARY_NAME composablekernel
-        PACKAGE_NAME ckprofiler
-   )
-   add_subdirectory(profiler)
-  else()
-    #When building PROFILER_ONLY, label the package with GPU_ARCH
+if(CK_BUILD_HOST_LIB)
+ if(GPU_TARGETS MATCHES "gfx9")
+    add_subdirectory(codegen)
+ endif()
+else()
+ add_subdirectory(library)
+ 
+ if(NOT DEFINED INSTANCES_ONLY)
+  if(NOT DEFINED PROFILER_ONLY)
+    rocm_package_setup_component(tests
+         LIBRARY_NAME composablekernel
+         PACKAGE_NAME tests # Prevent -static suffix on package name
+    )
+ 
+    rocm_package_setup_component(examples
+         LIBRARY_NAME composablekernel
+         PACKAGE_NAME examples
+    )
+    add_subdirectory(example)
+    if(GPU_TARGETS MATCHES "gfx9" AND NOT INSTANCES_ONLY)
+       add_subdirectory(codegen)
+    endif()
+    if(BUILD_TESTING)
+       add_subdirectory(test)
+    endif()
+ 
     rocm_package_setup_component(profiler
-       LIBRARY_NAME composablekernel
-       PACKAGE_NAME ckprofiler_${GPU_ARCH}
+         LIBRARY_NAME composablekernel
+         PACKAGE_NAME ckprofiler
     )
     add_subdirectory(profiler)
-  endif()
+   else()
+     #When building PROFILER_ONLY, label the package with GPU_ARCH
+     rocm_package_setup_component(profiler
+        LIBRARY_NAME composablekernel
+        PACKAGE_NAME ckprofiler_${GPU_ARCH}
+     )
+     add_subdirectory(profiler)
+   endif()
+ endif()
 endif()
 
 #Create an interface target for the include only files and call it "composablekernels"
