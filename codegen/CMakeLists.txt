@@ -8,13 +8,15 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CK_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
+list(APPEND CMAKE_PREFIX_PATH /opt/rocm /opt/rocm/llvm $ENV{ROCM_PATH} $ENV{HIP_PATH})
+
 find_package(ROCM)
 include(ROCMInstallTargets)
 include(ROCMTest)
 
 add_compile_options(-std=c++17)
 find_package(hip)
-## HIP
+# HIP
 set(CMAKE_HIP_PLATFORM amd)
 set(CMAKE_HIP_COMPILER ${CMAKE_CXX_COMPILER})
 set(CMAKE_HIP_EXTENSIONS ON)
@@ -51,6 +53,9 @@ target_include_directories(ck_host PUBLIC
 
 add_executable(ck-template-driver driver/main.cpp)
 target_link_libraries(ck-template-driver ck_host)
+
+find_package(hiprtc REQUIRED)
+target_link_libraries(ck_host PUBLIC hiprtc::hiprtc)
 
 rocm_install(
     TARGETS ck_host ck_headers

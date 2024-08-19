@@ -279,6 +279,7 @@ struct hiprtc_program
                        options.end(),
                        std::back_inserter(c_options),
                        [](const std::string& s) { return s.c_str(); });
+        std::cout << "BEFORE HIPRTC COMPILE" << std::endl;
         auto result   = hiprtcCompileProgram(prog.get(), c_options.size(), c_options.data());
         auto prog_log = log();
         if(not prog_log.empty() and not quiet)
@@ -318,18 +319,17 @@ std::vector<std::vector<char>> compile_hip_src_with_hiprtc(std::vector<src_file>
     hiprtc_program prog(std::move(srcs));
     auto options = split_string(params, ' ');
     options.push_back("-DMIGRAPHX_USE_HIPRTC=1");
-    // remove following three compilation flags for HIPRTC once fixes from hipRTC are available in
-    // if(enabled(MIGRAPHX_ENABLE_HIPRTC_WORKAROUNDS{}))
-    // {
-    //     options.push_back("-DMIGRAPHX_HAS_DPP=0");
-    //     options.push_back("-DMIGRAPHX_ENABLE_HIPRTC_WORKAROUNDS=1");
-    //     options.push_back("-Wno-reserved-identifier");
-    //     options.push_back("-Wno-unused-parameter");
-    //     options.push_back("-Wno-gnu-line-marker");
-    //     options.push_back("-Wno-old-style-cast");
-    // }
-    // if(enabled(MIGRAPHX_GPU_DEBUG{}))
-    //     options.push_back("-DMIGRAPHX_DEBUG");
+    if(true)
+    {
+        options.push_back("-DMIGRAPHX_HAS_DPP=0");
+        options.push_back("-DMIGRAPHX_ENABLE_HIPRTC_WORKAROUNDS=1");
+        options.push_back("-Wno-reserved-identifier");
+        options.push_back("-Wno-unused-parameter");
+        options.push_back("-Wno-gnu-line-marker");
+        options.push_back("-Wno-old-style-cast");
+    }
+    if(true)
+        options.push_back("-DMIGRAPHX_DEBUG");
     if(std::none_of(options.begin(), options.end(), [](const std::string& s) {
            return starts_with(s, "--std=") or starts_with(s, "-std=");
        }))
