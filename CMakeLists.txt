@@ -116,13 +116,13 @@ list(APPEND CMAKE_PREFIX_PATH ${CMAKE_INSTALL_PREFIX} ${CMAKE_INSTALL_PREFIX}/ll
 message("GPU_TARGETS= ${GPU_TARGETS}")
 
 option(CK_BUILD_HOST_LIB, "Only build the CK JIT Helper Library" OFF)
-if (NOT CK_BUILD_HOST_LIB)
+#if (NOT CK_BUILD_HOST_LIB)
 find_package(hip)
 # No assumption that HIP kernels are launched with uniform block size for backward compatibility
 # SWDEV-413293 and https://reviews.llvm.org/D155213
 math(EXPR hip_VERSION_FLAT "(${hip_VERSION_MAJOR} * 1000 + ${hip_VERSION_MINOR}) * 100000 + ${hip_VERSION_PATCH}")
 message("hip_version_flat=${hip_VERSION_FLAT}")
-endif()
+#endif()
 
 message("checking which targets are supported")
 #This is the list of targets to be used in case GPU_TARGETS is not set on command line
