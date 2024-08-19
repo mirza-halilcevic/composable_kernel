@@ -486,12 +486,14 @@ include_directories(BEFORE
     ${HIP_INCLUDE_DIRS}
 )
 
+if (NOT CK_BUILD_HOST_LIB)
 SET(BUILD_DEV ON CACHE BOOL "BUILD_DEV")
 if(BUILD_DEV)
     add_compile_options(-Werror)
     add_compile_options(-Weverything)
 endif()
 message("CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
+endif()
 
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     add_compile_options(-fcolor-diagnostics)
@@ -545,40 +547,47 @@ ENDFOREACH()
 add_custom_target(instances DEPENDS utility;${CK_DEVICE_INSTANCES}  SOURCES ${INSTANCE_FILES})
 add_subdirectory(library)
  
-    if(NOT DEFINED INSTANCES_ONLY)
-    if(NOT DEFINED PROFILER_ONLY)
-    rocm_package_setup_component(tests
-            LIBRARY_NAME composablekernel
-            PACKAGE_NAME tests # Prevent -static suffix on package name
-    )
+if(NOT DEFINED INSTANCES_ONLY)
+ if(NOT DEFINED PROFILER_ONLY)
+  rocm_package_setup_component(tests
+       LIBRARY_NAME composablekernel
+       PACKAGE_NAME tests # Prevent -static suffix on package name
+  )
 
-    rocm_package_setup_component(examples
-            LIBRARY_NAME composablekernel
-            PACKAGE_NAME examples
-    )
-    add_subdirectory(example)
-    add_subdirectory(test)
+  rocm_package_setup_component(examples
+       LIBRARY_NAME composablekernel
+       PACKAGE_NAME examples
+  )
+  add_subdirectory(example)
+  if(GPU_TARGETS MATCHES "gfx9" AND NOT INSTANCES_ONLY)
+     add_subdirectory(codegen)
+  endif()
+  if(BUILD_TESTING)
+     add_subdirectory(test)
+  endif()
 
-    rocm_package_setup_component(profiler
-            LIBRARY_NAME composablekernel
-            PACKAGE_NAME ckProfiler
-    )
-    add_subdirectory(profiler)
-    else()
-        #When building PROFILER_ONLY, label the package with GPU_ARCH
-        rocm_package_setup_component(profiler
-        LIBRARY_NAME composablekernel
-        PACKAGE_NAME ckProfiler_${GPU_ARCH}
-        )
-        add_subdirectory(profiler)
-    endif()
-    endif()
+  rocm_package_setup_component(profiler
+       LIBRARY_NAME composablekernel
+       PACKAGE_NAME ckprofiler
+  )
+  add_subdirectory(profiler)
+ else()
+   #When building PROFILER_ONLY, label the package with GPU_ARCH
+   rocm_package_setup_component(profiler
+      LIBRARY_NAME composablekernel
+      PACKAGE_NAME ckprofiler_${GPU_ARCH}
+   )
+   add_subdirectory(profiler)
+ endif()
+endif()
 else()
+  if(GPU_TARGETS MATCHES "gfx9" AND NOT INSTANCES_ONLY)
     rocm_package_setup_component(ck_host
         LIBRARY_NAME composablekernel
         PACKAGE_NAME ck_host
     )
     add_subdirectory(codegen)
+  endif()
 endif()
 
 #Create an interface target for the include only files and call it "composablekernels"
