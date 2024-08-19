@@ -30,8 +30,6 @@ find_package(Python3 3.6 COMPONENTS Interpreter REQUIRED)
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
-option(CK_BUILD_HOST_LIB, "Only build the CK JIT Helper Library" OFF)
-
 if (DTYPES)
     add_definitions(-DDTYPES)
     if (DTYPES MATCHES "int8")
@@ -117,11 +115,14 @@ list(APPEND CMAKE_PREFIX_PATH ${CMAKE_INSTALL_PREFIX} ${CMAKE_INSTALL_PREFIX}/ll
 
 message("GPU_TARGETS= ${GPU_TARGETS}")
 
+option(CK_BUILD_HOST_LIB, "Only build the CK JIT Helper Library" OFF)
+if (NOT CK_BUILD_HOST_LIB)
 find_package(hip)
 # No assumption that HIP kernels are launched with uniform block size for backward compatibility
 # SWDEV-413293 and https://reviews.llvm.org/D155213
 math(EXPR hip_VERSION_FLAT "(${hip_VERSION_MAJOR} * 1000 + ${hip_VERSION_MINOR}) * 100000 + ${hip_VERSION_PATCH}")
 message("hip_version_flat=${hip_VERSION_FLAT}")
+endif()
 
 message("checking which targets are supported")
 #This is the list of targets to be used in case GPU_TARGETS is not set on command line
@@ -237,7 +238,7 @@ elseif(CK_PARALLEL_COMPILE_JOBS)
   message(WARNING "Job pooling is only available with Ninja generators.")
 endif()
 
-
+if (NOT CK_BUILD_HOST_LIB)
 option(USE_BITINT_EXTENSION_INT4 "Whether to enable clang's BitInt extension to provide int4 data type." OFF)
 option(USE_OPT_GFX11 "Whether to enable LDS cumode and Wavefront32 mode for GFX11 silicons." OFF)
 
@@ -257,6 +258,7 @@ endif()
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 link_libraries(Threads::Threads)
+endif()
 
 ## C++
 set(CMAKE_CXX_STANDARD 17)
@@ -274,6 +276,7 @@ if(USE_GLIBCXX_ASSERTIONS)
   add_compile_options(-Wp,-D_GLIBCXX_ASSERTIONS)
 endif()
 
+if (NOT CK_BUILD_HOST_LIB)
 ## HIP
 set(CMAKE_HIP_PLATFORM amd)
 set(CMAKE_HIP_COMPILER ${CMAKE_CXX_COMPILER})
@@ -327,6 +330,7 @@ if(CK_hip_VERSION VERSION_GREATER_EQUAL 6.0.23494)
     add_compile_definitions(__HIP_PLATFORM_AMD__=1)
 else()
     add_compile_definitions(__HIP_PLATFORM_HCC__=1)
+endif()
 endif()
 
 ## tidy
@@ -498,6 +502,7 @@ endif()
 
 add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -C ${CMAKE_CFG_INTDIR})
 
+if (NOT CK_BUILD_HOST_LIB)
 file(GLOB_RECURSE INSTANCE_FILES "${PROJECT_SOURCE_DIR}/*/device_*_instance.cpp")
 file(GLOB dir_list RELATIVE ${PROJECT_SOURCE_DIR}/library/src/tensor_operation_instance/gpu ${PROJECT_SOURCE_DIR}/library/src/tensor_operation_instance/gpu/*)
 set(CK_DEVICE_INSTANCES)
@@ -538,50 +543,42 @@ ENDIF()
 ENDFOREACH()
 
 add_custom_target(instances DEPENDS utility;${CK_DEVICE_INSTANCES}  SOURCES ${INSTANCE_FILES})
-
-if(CK_BUILD_HOST_LIB)
- if(GPU_TARGETS MATCHES "gfx9")
-    rocm_package_setup_component(ck_host
-        LIBRARY_NAME composablekernel
-        PACKAGE_NAME ck_host)
-    add_subdirectory(codegen)
- endif()
-else()
- add_subdirectory(library)
+add_subdirectory(library)
  
- if(NOT DEFINED INSTANCES_ONLY)
-  if(NOT DEFINED PROFILER_ONLY)
+    if(NOT DEFINED INSTANCES_ONLY)
+    if(NOT DEFINED PROFILER_ONLY)
     rocm_package_setup_component(tests
-         LIBRARY_NAME composablekernel
-         PACKAGE_NAME tests # Prevent -static suffix on package name
+            LIBRARY_NAME composablekernel
+            PACKAGE_NAME tests # Prevent -static suffix on package name
     )
- 
+
     rocm_package_setup_component(examples
-         LIBRARY_NAME composablekernel
-         PACKAGE_NAME examples
+            LIBRARY_NAME composablekernel
+            PACKAGE_NAME examples
     )
     add_subdirectory(example)
-    if(GPU_TARGETS MATCHES "gfx9" AND NOT INSTANCES_ONLY)
-       add_subdirectory(codegen)
-    endif()
-    if(BUILD_TESTING)
-       add_subdirectory(test)
-    endif()
- 
+    add_subdirectory(test)
+
     rocm_package_setup_component(profiler
-         LIBRARY_NAME composablekernel
-         PACKAGE_NAME ckprofiler
+            LIBRARY_NAME composablekernel
+            PACKAGE_NAME ckProfiler
     )
     add_subdirectory(profiler)
-   else()
-     #When building PROFILER_ONLY, label the package with GPU_ARCH
-     rocm_package_setup_component(profiler
+    else()
+        #When building PROFILER_ONLY, label the package with GPU_ARCH
+        rocm_package_setup_component(profiler
         LIBRARY_NAME composablekernel
-        PACKAGE_NAME ckprofiler_${GPU_ARCH}
-     )
-     add_subdirectory(profiler)
-   endif()
- endif()
+        PACKAGE_NAME ckProfiler_${GPU_ARCH}
+        )
+        add_subdirectory(profiler)
+    endif()
+    endif()
+else()
+    rocm_package_setup_component(ck_host
+        LIBRARY_NAME composablekernel
+        PACKAGE_NAME ck_host
+    )
+    add_subdirectory(codegen)
 endif()
 
 #Create an interface target for the include only files and call it "composablekernels"
