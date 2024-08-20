@@ -52,6 +52,9 @@ target_include_directories(ck_host PUBLIC
 add_executable(ck-template-driver driver/main.cpp)
 target_link_libraries(ck-template-driver ck_host)
 
+find_package(hiprtc REQUIRED)
+target_link_libraries(ck_host PUBLIC hiprtc::hiprtc)
+
 rocm_install(
     TARGETS ck_host 
     EXPORT ck_hostTargets
