@@ -81,6 +81,7 @@ const std::string S = SequenceStr({xs...});
 
 constexpr const char* PassThrough = "ck::tensor_operation::element_wise::PassThrough";
 constexpr const char* Bilinear    = "ck::tensor_operation::element_wise::Bilinear";
+constexpr const char* Scale       = "ck::tensor_operation::element_wise::Scale";
 
 } // namespace host
 } // namespace ck
