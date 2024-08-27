@@ -227,9 +227,9 @@ struct DeviceGemmMultipleD_Xdl_CShuffle : public DeviceGemmMultipleD<ALayout,
         return matrix_padder.PadCDescriptor_M_N(e_grid_desc_mraw_nraw);
     }
 
-    static auto MakeDsGridDescriptor_M_N(const std::array<index_t, NumDTensor>& MRaws,
-                                         const std::array<index_t, NumDTensor>& NRaws,
-                                         const std::array<index_t, NumDTensor>& DsStride)
+    static auto MakeDsGridDescriptor_M_N(const Array<index_t, NumDTensor>& MRaws,
+                                         const Array<index_t, NumDTensor>& NRaws,
+                                         const Array<index_t, NumDTensor>& DsStride)
     {
         return generate_tuple(
             [&](auto i) {

@@ -415,6 +415,12 @@ kernel compile_hip_code_object(const std::string& content, hip_compile_options o
     //     [](const std::pair<std::string_view, std::string_view>& elem) { return src_file{elem};
     //     });
     srcs.emplace_back("main.cpp", content);
+
+    for (auto src : srcs) {
+        std::cout << src.path << std::endl;
+    }
+
+
     // auto args_hpp =
     //     generate_args_hpp(options.virtual_inputs.empty() ? options.inputs :
     //     options.virtual_inputs);

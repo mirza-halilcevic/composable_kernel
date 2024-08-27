@@ -17,6 +17,51 @@
 using half = _Float16;
 // using half = __fp16;
 
+// NOLINTNEXTLINE
+const char* const disable_warning_pragma = R"__migraphx__(
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Weverything"
+${content}
+#pragma clang diagnostic pop
+)__migraphx__";
+
+template <class P>
+std::string ck_disable_warnings(P p)
+{
+    return ck::host::InterpolateString(disable_warning_pragma,
+                                       {{"content", std::string{p.data(), p.size()}}});
+}
+
+static std::unordered_map<std::string, std::string> create_ck_header_strings()
+{
+    std::unordered_map<std::string, std::string> result;
+    auto ck_headers = ck::host::GetHeaders();
+
+    std::transform(
+        ck_headers.begin(), ck_headers.end(), std::inserter(result, result.begin()), [&](auto& p) {
+            return std::pair<std::string, std::string>(p.first, ck_disable_warnings(p.second));
+        });
+    return result;
+}
+
+static std::vector<rtc::src_file> create_ck_headers()
+{
+    static const auto& header_strings = create_ck_header_strings();
+    std::vector<rtc::src_file> srcs;
+    std::transform(
+        header_strings.begin(), header_strings.end(), std::back_inserter(srcs), [&](auto& p) -> rtc::src_file {
+            std::string sec(p.second.begin(), p.second.end());
+            return {p.first, sec};
+        });
+    return srcs;
+}
+
+static inline const std::vector<rtc::src_file>& ck_headers()
+{
+    static const auto& headers = create_ck_headers();
+    return headers;
+}
+
 std::vector<rtc::src_file> get_headers_for_test()
 {
     std::vector<rtc::src_file> result;
@@ -181,12 +226,13 @@ TEST_CASE(test_problem_kernel)
                                                        {"m", std::to_string(prob.M)},
                                                        {"n", std::to_string(prob.N)},
                                                        {"k", std::to_string(prob.K)}});
-        auto srcs       = get_headers_for_test();
-        srcs.push_back({"main.cpp", src});
+        // auto srcs       = get_headers_for_test();
+        // srcs.push_back({"main.cpp", src});
         // rtc::compile_options options;
         // options.kernel_name = "f";
         rtc::hip_compile_options options;
         options.kernel_name = "f";
+        options.additional_src_files = ck_headers();
         // auto k              = rtc::compile_kernel(srcs, options);
         std::cout << src << std::endl;
         auto k           = rtc::compile_hip_code_object(src, options);
