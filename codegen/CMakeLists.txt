@@ -1,9 +1,16 @@
+cmake_minimum_required(VERSION 3.16)
+project(composable_kernel_host LANGUAGES CXX HIP)
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CK_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/..)
+
+find_package(ROCM)
+include(ROCMInstallTargets)
+include(ROCMTest)
 
 add_compile_options(-std=c++17)
 find_package(hip)
@@ -41,9 +48,6 @@ target_include_directories(ck_host PUBLIC
 
 add_executable(ck-template-driver driver/main.cpp)
 target_link_libraries(ck-template-driver ck_host)
-
-find_package(hiprtc REQUIRED)
-target_link_libraries(ck_host PUBLIC hiprtc::hiprtc)
 
 rocm_install(
     TARGETS ck_host ck_headers

@@ -17,6 +17,51 @@
 using half = _Float16;
 // using half = __fp16;
 
+// NOLINTNEXTLINE
+const char* const disable_warning_pragma = R"__migraphx__(
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Weverything"
+${content}
+#pragma clang diagnostic pop
+)__migraphx__";
+
+template <class P>
+std::string ck_disable_warnings(P p)
+{
+    return ck::host::InterpolateString(disable_warning_pragma,
+                                       {{"content", std::string{p.data(), p.size()}}});
+}
+
+static std::unordered_map<std::string, std::string> create_ck_header_strings()
+{
+    std::unordered_map<std::string, std::string> result;
+    auto ck_headers = ck::host::GetHeaders();
+
+    std::transform(
+        ck_headers.begin(), ck_headers.end(), std::inserter(result, result.begin()), [&](auto& p) {
+            return std::pair<std::string, std::string>(p.first, ck_disable_warnings(p.second));
+        });
+    return result;
+}
+
+static std::vector<rtc::src_file> create_ck_headers()
+{
+    static const auto& header_strings = create_ck_header_strings();
+    std::vector<rtc::src_file> srcs;
+    std::transform(
+        header_strings.begin(), header_strings.end(), std::back_inserter(srcs), [&](auto& p) -> rtc::src_file {
+            std::string sec(p.second.begin(), p.second.end());
+            return {p.first, sec};
+        });
+    return srcs;
+}
+
+static inline const std::vector<rtc::src_file>& ck_headers()
+{
+    static const auto& headers = create_ck_headers();
+    return headers;
+}
+
 std::vector<rtc::src_file> get_headers_for_test()
 {
     std::vector<rtc::src_file> result;
@@ -133,13 +178,10 @@ const std::string gemm_compile_check = R"__ck__(
 
 extern "C" __global__ void f(const ck::half_t* a, const ck::half_t* b, ck::half_t* c) {
     using G = ${template};
-    constexpr auto desc =
-    G::make_descriptor(ck::make_naive_tensor_descriptor_packed(ck::make_tuple(${m},
-    ${k})),
-                                             ck::make_naive_tensor_descriptor(ck::make_tuple(${n},
-                                             ${k}), ck::make_tuple(1, ${n})), ck::make_tuple(),
-                                             ck::make_naive_tensor_descriptor_packed(ck::make_tuple(${m},
-                                             ${n})));
+    constexpr auto desc = ${template}::make_descriptor(ck::make_naive_tensor_descriptor_packed(ck::make_tuple(${m}, ${k})),
+                                             ck::make_naive_tensor_descriptor(ck::make_tuple(${n}, ${k}), ck::make_tuple(1, ${n})),
+                                             ck::make_tuple(),
+                                             ck::make_naive_tensor_descriptor_packed(ck::make_tuple(${m}, ${n})));
 
     static_assert(desc.IsValid(), "Invalid ck gemm.");
 
@@ -181,12 +223,13 @@ TEST_CASE(test_problem_kernel)
                                                        {"m", std::to_string(prob.M)},
                                                        {"n", std::to_string(prob.N)},
                                                        {"k", std::to_string(prob.K)}});
-        auto srcs       = get_headers_for_test();
-        srcs.push_back({"main.cpp", src});
+        // auto srcs       = get_headers_for_test();
+        // srcs.push_back({"main.cpp", src});
         // rtc::compile_options options;
         // options.kernel_name = "f";
         rtc::hip_compile_options options;
-        options.kernel_name = "f";
+        options.kernel_name          = "f";
+        options.additional_src_files = ck_headers();
         // auto k              = rtc::compile_kernel(srcs, options);
         std::cout << src << std::endl;
         auto k           = rtc::compile_hip_code_object(src, options);
@@ -208,10 +251,10 @@ TEST_CASE(test_gemm_softmax_gemm)
     prob.TransB  = true;
     prob.TransB1 = false;
     prob.TransC  = false;
-    prob.M = 1024;
-    prob.N = 1024;
-    prob.K = 1024;
-    prob.O = 1024;
+    prob.M       = 1024;
+    prob.N       = 1024;
+    prob.K       = 1024;
+    prob.O       = 1024;
     check_all<half> check;
     auto a  = to_gpu(generate_buffer<half>(1024 * 1024, 0));
     auto b  = to_gpu(generate_buffer<half>(1024 * 1024, 1));
@@ -224,7 +267,8 @@ TEST_CASE(test_gemm_softmax_gemm)
     auto solutions = prob.GetSolutions("gfx90a", prologue, epilogue);
     std::cout << "Num solutions: " << solutions.size() << std::endl;
 
-    for(auto i = 0; i < solutions.size(); ++i) {
+    for(auto i = 0; i < solutions.size(); ++i)
+    {
         std::cout << "Solution " << i << std::endl;
         std::cout << solutions[i].ToTemplateString() << std::endl;
         std::cout << std::endl;
