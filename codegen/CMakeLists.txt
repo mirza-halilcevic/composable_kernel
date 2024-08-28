@@ -32,11 +32,19 @@ file(GLOB SOURCES CONFIGURE_DEPENDS src/*.cpp)
 # TODO: Use object library
 add_library(ck_host STATIC ${SOURCES})
 add_library(composable_kernel::ck_host ALIAS ck_host)
-target_link_libraries(ck_host PRIVATE ck_headers)
 
 set_target_properties(ck_host PROPERTIES
 	LINKER_LANGUAGE CXX
         POSITION_INDEPENDENT_CODE ON)
+
+target_include_directories(ck_host SYSTEM PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    # $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/library/src/jit_library/solution_instances>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/solution_instances>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/embed/ck_headers/include>
+)
+
+target_link_libraries(ck_host PRIVATE $<BUILD_INTERFACE:ck_headers>)
 
 target_include_directories(ck_host PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
