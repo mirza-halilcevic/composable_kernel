@@ -264,10 +264,10 @@ std::vector<Operation_Xdl_CShuffle> Operation_Xdl_CShuffle::CreateOperations(
         x.update_prologue(prologue);
         x.update_epilogue(epilogue);
 
-        x.mask_out_upper_triangle = false;
+        x.mask_out_upper_triangle = true;
         result.push_back(x);
 
-        x.mask_out_upper_triangle = true;
+        x.mask_out_upper_triangle = false;
         result.push_back(x);
     }
     return result;
