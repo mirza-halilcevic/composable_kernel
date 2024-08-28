@@ -31,6 +31,7 @@ file(GLOB SOURCES CONFIGURE_DEPENDS src/*.cpp)
 ##message(STATUS "SOURCE_FILES: ${SOURCES}")
 # TODO: Use object library
 add_library(ck_host STATIC ${SOURCES})
+add_library(composable_kernel::ck_host ALIAS ck_host)
 target_link_libraries(ck_host PRIVATE ck_headers)
 
 set_target_properties(ck_host PROPERTIES
@@ -49,5 +50,12 @@ rocm_install(
     EXPORT ck_hostTargets
 )
 rocm_install(DIRECTORY include/ck DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+rocm_install(
+    EXPORT ck_hostTargets
+    FILE composable_kernelck_hostTargets.cmake
+    NAMESPACE composable_kernel::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/composable_kernel
+)
 
 add_subdirectory(test)
