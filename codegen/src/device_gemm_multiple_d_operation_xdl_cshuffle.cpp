@@ -368,7 +368,7 @@ Solution Operation_Xdl_CShuffle::ToSolution() const
         {"CDEBlockTransferScalarPerVector_NPerBlock",
          std::to_string(this->c_block_transfer.scalar_per_vector_n_wave_n_per_Xdl)},
         {"LoopScheduler", ToString(this->loop_scheduler)},
-        {"PipelineVersion", ToString(this->loop_scheduler)},
+        {"PipelineVersion", ToString(this->pipeline_version)},
     };
 
     return Solution{InterpolateString(DeviceGemmMultipleD_Xdl_CShuffleTemplate, values),
