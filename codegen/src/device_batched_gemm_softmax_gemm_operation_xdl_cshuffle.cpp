@@ -263,6 +263,9 @@ std::vector<Operation_Xdl_CShuffle> Operation_Xdl_CShuffle::CreateOperations(
                                             x.tile_desc.gemm1_n_per_block);
         x.update_prologue(prologue);
         x.update_epilogue(epilogue);
+        x.mask_out_upper_triangle = true;
+        result.push_back(x);
+
         x.mask_out_upper_triangle = false;
         result.push_back(x);
     }

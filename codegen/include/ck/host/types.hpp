@@ -66,6 +66,20 @@ enum class GemmType
 };
 std::string ToString(GemmType gt);
 
+enum class LoopScheduler
+{
+    Default,
+    Interwave,
+};
+std::string ToString(LoopScheduler ls);
+
+enum class PipelineVersion
+{
+    v1,
+    v2
+};
+std::string ToString(PipelineVersion pv);
+
 struct TensorDesc
 {
     DataType element;
