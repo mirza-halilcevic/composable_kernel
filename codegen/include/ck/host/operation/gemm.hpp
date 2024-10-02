@@ -43,6 +43,8 @@ struct TileDescGemmSoftmaxGemm
     int num_gemmk_prefetch_stage = 0;
 };
 
+using TileDescGemmElementwiseGemm = TileDescGemmSoftmaxGemm;
+
 struct BlockTransferDesc
 {
     std::string thread_cluster_length        = "";

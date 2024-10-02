@@ -2,6 +2,8 @@
 #include "ck/host/device_gemm_multiple_d/operation.hpp"
 #include "ck/host/device_batched_gemm_softmax_gemm/problem.hpp"
 #include "ck/host/device_batched_gemm_softmax_gemm/operation.hpp"
+#include "ck/host/device_gemm_elementwise_gemm/problem.hpp"
+#include "ck/host/device_gemm_elementwise_gemm/operation.hpp"
 #include "ck/host/headers.hpp"
 #include "ck/host/stringutils.hpp"
 #include "ck/host/utils.hpp"
@@ -48,11 +50,13 @@ static std::vector<rtc::src_file> create_ck_headers()
 {
     static const auto& header_strings = create_ck_header_strings();
     std::vector<rtc::src_file> srcs;
-    std::transform(
-        header_strings.begin(), header_strings.end(), std::back_inserter(srcs), [&](auto& p) -> rtc::src_file {
-            std::string sec(p.second.begin(), p.second.end());
-            return {p.first, sec};
-        });
+    std::transform(header_strings.begin(),
+                   header_strings.end(),
+                   std::back_inserter(srcs),
+                   [&](auto& p) -> rtc::src_file {
+                       std::string sec(p.second.begin(), p.second.end());
+                       return {p.first, sec};
+                   });
     return srcs;
 }
 
@@ -231,7 +235,7 @@ TEST_CASE(test_problem_kernel)
         // rtc::compile_options options;
         // options.kernel_name = "f";
         rtc::hip_compile_options options;
-        options.kernel_name = "f";
+        options.kernel_name          = "f";
         options.additional_src_files = ck_headers();
         // auto k              = rtc::compile_kernel(srcs, options);
         std::cout << src << std::endl;
@@ -254,10 +258,10 @@ TEST_CASE(test_gemm_softmax_gemm)
     prob.TransB  = true;
     prob.TransB1 = false;
     prob.TransC  = false;
-    prob.M = 1024;
-    prob.N = 1024;
-    prob.K = 1024;
-    prob.O = 1024;
+    prob.M       = 1024;
+    prob.N       = 1024;
+    prob.K       = 1024;
+    prob.O       = 1024;
     check_all<half> check;
     auto a  = to_gpu(generate_buffer<half>(1024 * 1024, 0));
     auto b  = to_gpu(generate_buffer<half>(1024 * 1024, 1));
@@ -270,7 +274,39 @@ TEST_CASE(test_gemm_softmax_gemm)
     auto solutions = prob.GetSolutions("gfx90a", prologue, epilogue);
     std::cout << "Num solutions: " << solutions.size() << std::endl;
 
-    for(auto i = 0; i < solutions.size(); ++i) {
+    for(auto i = 0; i < solutions.size(); ++i)
+    {
+        std::cout << "Solution " << i << std::endl;
+        std::cout << solutions[i].ToTemplateString() << std::endl;
+        std::cout << std::endl;
+    }
+}
+
+TEST_CASE(test_gemm_elementwise_gemm)
+{
+    ck::host::device_gemm_elementwise_gemm::Problem prob;
+    prob.TransA  = false;
+    prob.TransB0 = true;
+    prob.TransB1 = false;
+    prob.TransC  = false;
+    prob.M       = 1024;
+    prob.N       = 1024;
+    prob.K       = 1024;
+    prob.O       = 1024;
+    check_all<half> check;
+    auto a  = to_gpu(generate_buffer<half>(1024 * 1024, 0));
+    auto b  = to_gpu(generate_buffer<half>(1024 * 1024, 1));
+    auto b1 = to_gpu(generate_buffer<half>(1024 * 1024, 2));
+    auto c  = to_gpu(generate_buffer<half>(1024 * 1024, 3));
+
+    std::string epilogue = "";
+    std::string prologue = "";
+
+    auto solutions = prob.GetSolutions("gfx90a", prologue, epilogue);
+    std::cout << "Num solutions: " << solutions.size() << std::endl;
+
+    for(auto i = 0; i < solutions.size(); ++i)
+    {
         std::cout << "Solution " << i << std::endl;
         std::cout << solutions[i].ToTemplateString() << std::endl;
         std::cout << std::endl;

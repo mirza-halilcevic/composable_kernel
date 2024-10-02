@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2018-2024, Advanced Micro Devices, Inc. All rights reserved.
 
-#include "ck/host/device_batched_gemm_softmax_gemm/operation.hpp"
+#include "ck/host/device_gemm_elementwise_gemm/operation.hpp"
 #include "ck/host/stringutils.hpp"
 #include "ck/host/utils.hpp"
 #include <cassert>
 
 namespace ck {
 namespace host {
-namespace device_batched_gemm_softmax_gemm {
+namespace device_gemm_elementwise_gemm {
 
 // calculate appropriate Gemm Specification based on input tensor dimensions
 std::string GetGemmSpec(const std::size_t m,
@@ -69,40 +69,34 @@ std::vector<Operation_Xdl_CShuffle> Operation_Xdl_CShuffle::CreateOperations(
     const Problem& prob, const std::string& prologue, const std::string& epilogue)
 {
     assert(prob.TransA == false);
-    assert(prob.TransB == true);
-    assert(prob.TransB1 == false);
+    assert(prob.TransB0 == true);
     assert(prob.TransC == false);
+
+    const auto b1k1 = prob.TransB1 ? 4 : 2;
 
     std::vector<Operation_Xdl_CShuffle> result;
 
-    std::vector<operation::TileDescGemmSoftmaxGemm> tile_descriptions = {
+    std::vector<operation::TileDescGemmElementwiseGemm> tile_descriptions = {
         // clang-format off
 //  Block| Gemm01| Gemm0| Gemm0| Gemm1| Gemm1| AK1| BK1| B1K1| MPer| NPer| Gemm0| Gemm0| Gemm1| NumGemmK|
 //   Size|   MPer|  NPer|  KPer|  NPer|  KPer|    |    |     |  XDL|  XDL|  MXdl|  NXdl|  NXdl| Prefetch|
 //       |  Block| Block| Block| Block| Block|    |    |     |     |     |   Per|   Per|   Per|    Stage|
 //       |       |      |      |      |      |    |    |     |     |     |  Wave|  Wave|  Wave|         |
-  {   256,    256,   128,    32,    64,    32,   8,   8,    2,   32,   32,     2,     4,     2,        1},
-  {   256,    256,   128,    32,   128,    32,   8,   8,    2,   32,   32,     2,     4,     4,        1},
-  {   256,    128,   256,    32,    64,    32,   8,   8,    2,   32,   32,     1,     8,     2,        1},
-  {   256,    128,   256,    32,   128,    32,   8,   8,    2,   32,   32,     1,     8,     4,        1},
-  {   256,    128,   128,    64,    64,    32,   8,   8,    2,   32,   32,     1,     4,     2,        1},
-  {   256,    128,   128,    32,    64,    32,   8,   8,    2,   32,   32,     1,     4,     2,        1},
-  {   256,    128,   128,    64,   128,    32,   8,   8,    2,   32,   32,     1,     4,     4,        1},
-  {   256,    128,   128,    32,   128,    32,   8,   8,    2,   32,   32,     1,     4,     4,        1},
-  {   256,     64,   256,    32,   128,    32,   8,   8,    2,   16,   16,     1,    16,     8,        1},
-  {   256,     64,   256,    32,    64,    32,   8,   8,    2,   16,   16,     1,    16,     4,        1},
-  {   256,     64,   256,    64,   128,    32,   8,   8,    2,   16,   16,     1,    16,     8,        1},
-  {   256,     64,   256,    64,    64,    32,   8,   8,    2,   16,   16,     1,    16,     4,        1},
-// Padded fallback kernel  
-  {   256,    128,   128,    64,   128,    32,   8,   8,    2,   32,   32,     1,     4,     4,        1},
-  {   256,    128,    64,    32,   128,    32,   8,   8,    2,   32,   32,     1,     2,     4,        1},
-// Irregular k
-  {   256,    256,   128,    40,    64,    32,   4,   4,    2,   32,   32,     2,     4,     2,        1},
-  {   256,    256,   128,    40,   128,    32,   4,   4,    2,   32,   32,     2,     4,     4,        1},
-  {   256,    128,   256,    40,    64,    32,   4,   4,    2,   32,   32,     1,     8,     2,        1},
-  {   256,    128,   256,    40,   128,    32,   4,   4,    2,   32,   32,     1,     8,     4,        1},
-  {   256,    128,   128,    40,    64,    32,   4,   4,    2,   32,   32,     1,     4,     2,        1},
-  {   256,    128,   128,    40,   128,    32,   4,   4,    2,   32,   32,     1,     4,     4,        1},
+  {   256,    256,   128,    32,    64,    32,   8,   8, b1k1,   32,   32,     2,     4,     2,        1},
+  {   256,    256,   128,    32,   128,    32,   8,   8, b1k1,   32,   32,     2,     4,     4,        1},
+  {   256,    128,   256,    32,    64,    32,   8,   8, b1k1,   32,   32,     1,     8,     2,        1},
+  {   256,    128,   256,    32,   128,    32,   8,   8, b1k1,   32,   32,     1,     8,     4,        1},
+  {   256,    128,   128,    64,    64,    32,   8,   8, b1k1,   32,   32,     1,     4,     2,        1},
+  {   256,    128,   128,    32,    64,    32,   8,   8, b1k1,   32,   32,     1,     4,     2,        1},
+  {   256,    128,   128,    64,   128,    32,   8,   8, b1k1,   32,   32,     1,     4,     4,        1},
+  {   256,    128,   128,    32,   128,    32,   8,   8, b1k1,   32,   32,     1,     4,     4,        1},
+  {   256,     64,   256,    32,   128,    32,   8,   8, b1k1,   16,   16,     1,    16,     8,        1},
+  {   256,     64,   256,    32,    64,    32,   8,   8, b1k1,   16,   16,     1,    16,     4,        1},
+  {   256,     64,   256,    64,   128,    32,   8,   8, b1k1,   16,   16,     1,    16,     8,        1},
+  {   256,     64,   256,    64,    64,    32,   8,   8, b1k1,   16,   16,     1,    16,     4,        1},
+// Padded fallback kerne
+  {   256,    128,   128,    64,   128,    32,   8,   8, b1k1,   32,   32,     1,     4,     4,        1},
+  {   256,    128,    64,    32,   128,    32,   8,   8, b1k1,   32,   32,     1,     2,     4,        1},
         // clang-format on
     };
 
@@ -127,19 +121,35 @@ std::vector<Operation_Xdl_CShuffle> Operation_Xdl_CShuffle::CreateOperations(
 // Padded fallback kernel
   {    S<8, 32, 1>,     S<1, 0, 2>,     S<1, 0, 2>,              2,              8,              8,     false},
   {    S<4, 64, 1>,     S<1, 0, 2>,     S<1, 0, 2>,              2,              8,              8,      true},
-// Irregular k
-  {    S<2,128, 1>,     S<1, 0, 2>,     S<1, 0, 2>,              2,              4,              4,     false},
-  {    S<2,128, 1>,     S<1, 0, 2>,     S<1, 0, 2>,              2,              4,              4,     false},
-  {    S<2,128, 1>,     S<1, 0, 2>,     S<1, 0, 2>,              2,              4,              4,     false},
-  {    S<2,128, 1>,     S<1, 0, 2>,     S<1, 0, 2>,              2,              4,              4,     false},
-  {    S<2,128, 1>,     S<1, 0, 2>,     S<1, 0, 2>,              2,              4,              4,     false},
-  {    S<2,128, 1>,     S<1, 0, 2>,     S<1, 0, 2>,              2,              4,              4,     false},
         // clang-format on
     };
 
-    const auto& b_block_descriptions = a_block_descriptions;
+    const auto& b0_block_descriptions_rowmajor = a_block_descriptions;
 
-    const std::vector<operation::BlockTransferDesc> b1_block_descriptions = {
+    const std::vector<operation::BlockTransferDesc> b0_block_descriptions_colmajor = {
+        // clang-format off
+//  B0BlockTransfer| B0BlockTransfer| B0BlockTransfer| B0BlockTransfer| B0BlockTransfer| B0BlockTransfer| B0BlockLds|
+//    ThreadCluster|   ThreadCluster|  SrcAccessOrder|    SrcVectorDim|       SrcScalar|       DstScalar|  AddExtraN|
+//  Lengths_K0_N_K1|    ArrangeOrder|                |                |       PerVector|    PerVector_K1|           |
+//                 |                |                |                |                |                |           |
+   {    S<4, 64, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               8,               8,       true},
+   {    S<4, 64, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               8,               8,       true},
+   {    S<4, 64, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               8,               8,       true},
+   {    S<4, 64, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               8,               8,       true},
+   {    S<8, 32, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               8,               8,       true},
+   {    S<4, 64, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               8,               8,       true},
+   {    S<8, 32, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               8,               8,       true},
+   {    S<4, 64, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               8,               8,       true},
+   {    S<4, 64, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               8,               8,       true},
+   {    S<4, 64, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               8,               8,       true},
+   {    S<8, 32, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               8,               8,       true},
+   {    S<8, 32, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               8,               8,       true},
+   {    S<8, 32, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               8,               8,      false},
+   {    S<4, 64, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               8,               8,       true},
+        // clang-format on
+    };
+
+    const std::vector<operation::BlockTransferDesc> b1_block_descriptions_rowmajor = {
         // clang-format off
 //  B1BlockTransfer| B1BlockTransfer| B1BlockTransfer| B1BlockTransfer| B1BlockTransfer| B1BlockTransfer| B1BlockLds|
 //    ThreadCluster|   ThreadCluster|  SrcAccessOrder|    SrcVectorDim|       SrcScalar|       DstScalar|  AddExtraN|
@@ -160,13 +170,30 @@ std::vector<Operation_Xdl_CShuffle> Operation_Xdl_CShuffle::CreateOperations(
 // Padded fallback kernel
    {   S< 8, 32, 1>,      S<0, 2, 1>,      S<0, 2, 1>,               1,               4,               2,      false},
    {   S< 8, 32, 1>,      S<0, 2, 1>,      S<0, 2, 1>,               1,               4,               2,      false},
-// Irregular k
-   {   S<16, 16, 1>,      S<0, 2, 1>,      S<0, 2, 1>,               1,               4,               2,      false},
-   {   S< 8, 32, 1>,      S<0, 2, 1>,      S<0, 2, 1>,               1,               4,               2,      false},
-   {   S<16, 16, 1>,      S<0, 2, 1>,      S<0, 2, 1>,               1,               4,               2,      false},
-   {   S< 8, 32, 1>,      S<0, 2, 1>,      S<0, 2, 1>,               1,               4,               2,      false},
-   {   S<16, 16, 1>,      S<0, 2, 1>,      S<0, 2, 1>,               1,               4,               2,      false},
-   {   S< 8, 32, 1>,      S<0, 2, 1>,      S<0, 2, 1>,               1,               4,               2,      false},
+        // clang-format on
+    };
+
+    const std::vector<operation::BlockTransferDesc> b1_block_descriptions_colmajor = {
+        // clang-format off
+//  B1BlockTransfer| B1BlockTransfer| B1BlockTransfer| B1BlockTransfer| B1BlockTransfer| B1BlockTransfer| B1BlockLds|
+//    ThreadCluster|   ThreadCluster|  SrcAccessOrder|    SrcVectorDim|       SrcScalar|       DstScalar|  AddExtraN|
+//  Lengths_K0_N_K1|    ArrangeOrder|                |                |       PerVector|    PerVector_K1|           |
+//                 |                |                |                |                |                |           |
+   {    S<4, 64, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               4,               4,       true},
+   {    S<4, 64, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               4,               4,       true},
+   {    S<4, 64, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               4,               4,       true},
+   {    S<4, 64, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               4,               4,       true},
+   {    S<4, 64, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               4,               4,      false},
+   {    S<4, 64, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               4,               4,       true},
+   {    S<8, 32, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               4,               4,      false},
+   {    S<4, 64, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               4,               4,       true},
+   {    S<4, 64, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               4,               4,       true},
+   {    S<4, 64, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               4,               4,       true},
+   {    S<8, 32, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               4,               4,       true},
+   {    S<8, 32, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               4,               4,       true},
+// Padded fallback kernel
+   {    S<8, 32, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               4,               4,      false},
+   {    S<4, 64, 1>,      S<1, 0, 2>,      S<1, 0, 2>,               2,               4,               4,       true},
         // clang-format on
     };
 
@@ -189,13 +216,6 @@ std::vector<Operation_Xdl_CShuffle> Operation_Xdl_CShuffle::CreateOperations(
   {          1,           8},
   {          1,           4},
 // Padded fallback kernel
-  {          1,           2},
-  {          1,           2},
-// Irregular k
-  {          1,           2},
-  {          1,           2},
-  {          1,           2},
-  {          1,           2},
   {          1,           2},
   {          1,           2},
         // clang-format on
@@ -222,15 +242,14 @@ std::vector<Operation_Xdl_CShuffle> Operation_Xdl_CShuffle::CreateOperations(
 // Padded fallback kernel
   {              S<1, 32, 1, 8>,               8},
   {              S<1, 32, 1, 8>,               8},
-// Irregular k
-  {              S<1, 32, 1, 8>,               8},
-  {              S<1, 32, 1, 8>,               8},
-  {              S<1, 32, 1, 8>,               8},
-  {              S<1, 32, 1, 8>,               8},
-  {              S<1, 32, 1, 8>,               8},
-  {              S<1, 32, 1, 8>,               8},
         // clang-format on
     };
+
+    // choose correct arrangement of tuning parameters based on the layout of each tensor
+    const auto& b0_block_descriptions =
+        prob.TransB1 ? b0_block_descriptions_colmajor : b0_block_descriptions_rowmajor;
+    const auto& b1_block_descriptions =
+        prob.TransB1 ? b1_block_descriptions_colmajor : b1_block_descriptions_rowmajor;
 
     assert(tile_descriptions.size() == a_block_descriptions.size());
     assert(tile_descriptions.size() == b1_block_descriptions.size());
@@ -243,19 +262,19 @@ std::vector<Operation_Xdl_CShuffle> Operation_Xdl_CShuffle::CreateOperations(
         Operation_Xdl_CShuffle x;
         x.tile_desc           = tile_descriptions[i];
         x.a_block_transfer    = a_block_descriptions[i];
-        x.b0_block_transfer   = b_block_descriptions[i];
+        x.b0_block_transfer   = b0_block_descriptions[i];
         x.b1_block_transfer   = b1_block_descriptions[i];
         x.cshuffle            = cshuffle_descriptions[i];
         x.c_block_transfer    = c_block_descriptions[i];
         x.A                   = TensorDesc{prob.ADataType, ToLayout(prob.TransA)};
-        x.B                   = TensorDesc{prob.BDataType, ToLayout(prob.TransB)};
+        x.B0                  = TensorDesc{prob.B0DataType, ToLayout(prob.TransB0)};
         x.B1                  = TensorDesc{prob.B1DataType, ToLayout(prob.TransB1)};
         x.C                   = TensorDesc{prob.CDataType, ToLayout(prob.TransC)};
         x.a_elem_op           = prob.AElementOp;
-        x.b_elem_op           = prob.BElementOp;
+        x.b0_elem_op          = prob.B0ElementOp;
         x.b1_elem_op          = prob.B1ElementOp;
         x.c_elem_op           = prob.CElementOp;
-        x.acc_elem_op         = prob.AccElementOp;
+        x.acc0_elem_op        = prob.Acc0ElementOp;
         x.gemm_specialization = GetGemmSpec(prob.M,
                                             prob.N,
                                             prob.K,
@@ -266,10 +285,6 @@ std::vector<Operation_Xdl_CShuffle> Operation_Xdl_CShuffle::CreateOperations(
                                             x.tile_desc.gemm1_n_per_block);
         x.update_prologue(prologue);
         x.update_epilogue(epilogue);
-        x.mask_out_upper_triangle = true;
-        result.push_back(x);
-
-        x.mask_out_upper_triangle = false;
         result.push_back(x);
     }
     return result;
@@ -280,17 +295,23 @@ std::vector<Operation_Xdl_CShuffle> Operation_Xdl_CShuffle::CreateOperations(
 std::vector<std::vector<Operation_Xdl_CShuffle>>
 Operation_Xdl_CShuffle::CreateOperations(const std::string& prologue, const std::string& epilogue)
 {
+    std::vector<std::vector<Operation_Xdl_CShuffle>> operations;
+
     Problem prob;
     prob.TransA  = false;
-    prob.TransB  = true;
+    prob.TransB0 = true;
     prob.TransB1 = false;
     prob.TransC  = false;
+    operations.push_back(CreateOperations(prob, prologue, epilogue));
 
-    return {CreateOperations(prob, prologue, epilogue)};
+    prob.TransB1 = true;
+    operations.push_back(CreateOperations(prob, prologue, epilogue));
+
+    return operations;
 }
 
-static const char* const DeviceBatchedGemmSoftmaxGemm_Xdl_CShuffleTemplate =
-    "ck::tensor_operation::device::DeviceBatchedGemmSoftmaxGemm_Xdl_CShuffle<${LayoutA}, "
+static const char* const DeviceBatchedGemmGemm_Xdl_CShuffleTemplate =
+    "ck::tensor_operation::device::DeviceBatchedGemmGemm_Xdl_CShuffle<${LayoutA}, "
     "${LayoutB0}, ${LayoutB1}, ${LayoutC}, ${ADataType}, ${B0DataType}, ${B1DataType}, "
     "${CDataType}, ${AccDataType}, ${CShuffleDataType}, ${AElementwiseOperation}, "
     "${B0ElementwiseOperation}, ${Acc0ElementwiseOperation}, ${B1ElementwiseOperation}, "
@@ -311,7 +332,7 @@ static const char* const DeviceBatchedGemmSoftmaxGemm_Xdl_CShuffleTemplate =
     "${B1BlockTransferDstScalarPerVector_BK1}, ${B1BlockLdsExtraN}, "
     "${CShuffleMXdlPerWavePerShuffle}, ${CShuffleNXdlPerWavePerShuffle}, "
     "${CBlockTransferClusterLengths_MBlock_MWaveMPerXdl_NBlock_NWaveNPerXdl}, "
-    "${CBlockTransferScalarPerVector_NWaveNPerXdl}, ${MaskOutUpperTriangle}>";
+    "${CBlockTransferScalarPerVector_NWaveNPerXdl}>";
 
 // use hardcoded instances from vector of operations to substitute values into instance template
 Solution Operation_Xdl_CShuffle::ToSolution() const
@@ -332,18 +353,18 @@ Solution Operation_Xdl_CShuffle::ToSolution() const
              std::to_string(this->tile_desc.gemm0_n_Xdl_per_wave) + "_" +
              std::to_string(this->tile_desc.gemm1_n_Xdl_per_wave)},
         {"LayoutA", ToString(this->A.layout)},
-        {"LayoutB0", ToString(this->B.layout)},
+        {"LayoutB0", ToString(this->B0.layout)},
         {"LayoutB1", ToString(this->B1.layout)},
         {"LayoutC", ToString(this->C.layout)},
         {"ADataType", ToString(this->A.element)},
-        {"B0DataType", ToString(this->B.element)},
+        {"B0DataType", ToString(this->B0.element)},
         {"B1DataType", ToString(this->B1.element)},
         {"CDataType", ToString(this->C.element)},
         {"AccDataType", ToString(this->acc)},
         {"CShuffleDataType", ToString(this->cs_type)},
         {"AElementwiseOperation", this->a_elem_op},
-        {"B0ElementwiseOperation", this->b_elem_op},
-        {"Acc0ElementwiseOperation", this->acc_elem_op},
+        {"B0ElementwiseOperation", this->b0_elem_op},
+        {"Acc0ElementwiseOperation", this->acc0_elem_op},
         {"B1ElementwiseOperation", this->b1_elem_op},
         {"CElementwiseOperation", this->c_elem_op},
         {"GemmSpecialization", this->gemm_specialization},
@@ -403,13 +424,12 @@ Solution Operation_Xdl_CShuffle::ToSolution() const
          this->c_block_transfer.cluster_lengths_m_block_m_wave_m_per_Xdl_n_block_n_wave_n_per_Xdl},
         {"CBlockTransferScalarPerVector_NWaveNPerXdl",
          std::to_string(this->c_block_transfer.scalar_per_vector_n_wave_n_per_Xdl)},
-        {"MaskOutUpperTriangle", std::to_string(this->mask_out_upper_triangle)},
     };
 
-    return Solution{InterpolateString(DeviceBatchedGemmSoftmaxGemm_Xdl_CShuffleTemplate, values),
+    return Solution{InterpolateString(DeviceBatchedGemmGemm_Xdl_CShuffleTemplate, values),
                     std::move(values)};
 }
 
-} // namespace device_batched_gemm_softmax_gemm
+} // namespace device_gemm_elementwise_gemm
 } // namespace host
 } // namespace ck

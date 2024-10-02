@@ -8,11 +8,11 @@
 #include <string>
 #include "ck/host/types.hpp"
 #include "ck/host/operation/gemm.hpp"
-#include "ck/host/device_batched_gemm_softmax_gemm/problem.hpp"
+#include "ck/host/device_gemm_elementwise_gemm/problem.hpp"
 
 namespace ck {
 namespace host {
-namespace device_batched_gemm_softmax_gemm {
+namespace device_gemm_elementwise_gemm {
 
 // defines all values need for an instance of fwd conv
 struct Operation_Xdl_CShuffle
@@ -24,28 +24,26 @@ struct Operation_Xdl_CShuffle
     static std::vector<Operation_Xdl_CShuffle>
     CreateOperations(const Problem& prob, const std::string& prologue, const std::string& epilogue);
     TensorDesc A{};
-    TensorDesc B{};
+    TensorDesc B0{};
     TensorDesc B1{};
     TensorDesc C{};
     DataType acc                    = DataType::Float;
     DataType cs_type                = DataType::Half;
     std::string a_elem_op           = PassThrough;
-    std::string b_elem_op           = PassThrough;
+    std::string b0_elem_op          = PassThrough;
+    std::string acc0_elem_op        = PassThrough;
     std::string b1_elem_op          = PassThrough;
     std::string c_elem_op           = PassThrough;
-    std::string acc_elem_op         = Scale;
     std::string prologue            = "";
     std::string epilogue            = "";
     std::string gemm_specialization = "ck::tensor_operation::device::GemmSpecialization::Default";
     // tuning parameters
-    operation::TileDescGemmSoftmaxGemm tile_desc{};
+    operation::TileDescGemmElementwiseGemm tile_desc{};
     operation::BlockTransferDesc a_block_transfer{};
     operation::BlockTransferDesc b0_block_transfer{};
     operation::BlockTransferDesc b1_block_transfer{};
     operation::CShuffleDesc cshuffle{};
     operation::CBlockTransferDesc c_block_transfer{};
-
-    bool mask_out_upper_triangle = false;
 
     // functions to update fusion operators if provided
     void update_prologue(const std::string& prologue);
@@ -55,6 +53,6 @@ struct Operation_Xdl_CShuffle
     Solution ToSolution() const;
 };
 
-} // namespace device_batched_gemm_softmax_gemm
+} // namespace device_gemm_elementwise_gemm
 } // namespace host
 } // namespace ck
