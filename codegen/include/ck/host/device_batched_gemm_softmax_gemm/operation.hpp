@@ -38,7 +38,7 @@ struct Operation_Xdl_CShuffle
     std::string epilogue            = "";
     std::string gemm_specialization = "ck::tensor_operation::device::GemmSpecialization::Default";
     // tuning parameters
-    operation::TileDescGemmSoftmaxGemm tile_desc{};
+    operation::TileDescGemmGemm tile_desc{};
     operation::BlockTransferDesc a_block_transfer{};
     operation::BlockTransferDesc b0_block_transfer{};
     operation::BlockTransferDesc b1_block_transfer{};

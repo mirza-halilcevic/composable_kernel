@@ -70,7 +70,7 @@ std::vector<Operation_Xdl_CShuffle> Operation_Xdl_CShuffle::CreateOperations(
 {
     std::vector<Operation_Xdl_CShuffle> result;
 
-    std::vector<operation::TileDescGemmSoftmaxGemm> tile_descriptions = {
+    std::vector<operation::TileDescGemmGemm> tile_descriptions = {
         // clang-format off
 //  Block| Gemm01| Gemm0| Gemm0| Gemm1| Gemm1| AK1| BK1| B1K1| MPer| NPer| Gemm0| Gemm0| Gemm1| NumGemmK|
 //   Size|   MPer|  NPer|  KPer|  NPer|  KPer|    |    |     |  XDL|  XDL|  MXdl|  NXdl|  NXdl| Prefetch|
@@ -253,7 +253,7 @@ std::vector<Operation_Xdl_CShuffle> Operation_Xdl_CShuffle::CreateOperations(
                                             prob.N,
                                             prob.K,
                                             prob.O,
-                                            x.tile_desc.gemm01_m_per_block,
+                                            x.tile_desc.gemm0_m_per_block,
                                             x.tile_desc.gemm0_n_per_block,
                                             x.tile_desc.gemm0_k_per_block,
                                             x.tile_desc.gemm1_n_per_block);
@@ -312,12 +312,12 @@ Solution Operation_Xdl_CShuffle::ToSolution() const
     std::unordered_map<std::string, std::string> values = {
         {"name",
          std::to_string(this->tile_desc.block_size) + "_" +
-             std::to_string(this->tile_desc.gemm01_m_per_block) + "_" +
+             std::to_string(this->tile_desc.gemm0_m_per_block) + "_" +
              std::to_string(this->tile_desc.gemm0_n_per_block) + "_" +
              std::to_string(this->tile_desc.gemm0_k_per_block) + "_" +
              std::to_string(this->tile_desc.gemm1_n_per_block) + "_" +
              std::to_string(this->tile_desc.gemm1_k_per_block) + "_" +
-             std::to_string(this->tile_desc.ak1) + "_" + std::to_string(this->tile_desc.bk1) + "_" +
+             std::to_string(this->tile_desc.a0k1) + "_" + std::to_string(this->tile_desc.b0k1) + "_" +
              std::to_string(this->tile_desc.b1k1) + "_" +
              std::to_string(this->tile_desc.m_per_XDL) + "_" +
              std::to_string(this->tile_desc.n_per_XDL) + "_" +
@@ -340,15 +340,15 @@ Solution Operation_Xdl_CShuffle::ToSolution() const
         {"B1ElementwiseOperation", this->b1_elem_op},
         {"CElementwiseOperation", this->c_elem_op},
         {"GemmSpecialization", this->gemm_specialization},
-        {"NumGemmkPrefetchStage", std::to_string(this->tile_desc.num_gemmk_prefetch_stage)},
+        {"NumGemmkPrefetchStage", std::to_string(this->tile_desc.num_gemm0k_prefetch_stage)},
         {"BlockSize", std::to_string(this->tile_desc.block_size)},
-        {"Gemm01MPerBlock", std::to_string(this->tile_desc.gemm01_m_per_block)},
+        {"Gemm01MPerBlock", std::to_string(this->tile_desc.gemm0_m_per_block)},
         {"Gemm0NPerBlock", std::to_string(this->tile_desc.gemm0_n_per_block)},
         {"Gemm0KPerBlock", std::to_string(this->tile_desc.gemm0_k_per_block)},
         {"Gemm1NPerBlock", std::to_string(this->tile_desc.gemm1_n_per_block)},
         {"Gemm1KPerBlock", std::to_string(this->tile_desc.gemm1_k_per_block)},
-        {"AK1", std::to_string(this->tile_desc.ak1)},
-        {"BK1", std::to_string(this->tile_desc.bk1)},
+        {"AK1", std::to_string(this->tile_desc.a0k1)},
+        {"BK1", std::to_string(this->tile_desc.b0k1)},
         {"B1K1", std::to_string(this->tile_desc.b1k1)},
         {"MPerXDL", std::to_string(this->tile_desc.m_per_XDL)},
         {"NPerXDL", std::to_string(this->tile_desc.n_per_XDL)},
