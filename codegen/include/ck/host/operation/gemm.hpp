@@ -9,6 +9,15 @@ namespace ck {
 namespace host {
 namespace operation {
 
+struct PaddingDesc
+{
+    bool pad_gemm0_m = 0;
+    bool pad_gemm0_n = 0;
+    bool pad_gemm0_k = 0;
+    bool pad_gemm1_n = 0;
+    bool pad_gemm1_k = 0;
+};
+
 struct TileDesc
 {
     int block_size               = 0;
@@ -53,11 +62,13 @@ struct BlockTransferDesc
     int dst_scalar_per_vector_k1             = 0;
     int lds_add_extra_dim                    = 0;
 };
+
 struct CShuffleDesc
 {
     int m_Xdl_per_wave_per_shuffle = 0;
     int n_Xdl_per_wave_per_shuffle = 0;
 };
+
 struct CBlockTransferDesc
 {
     std::string cluster_lengths_m_block_m_wave_m_per_Xdl_n_block_n_wave_n_per_Xdl = "";
