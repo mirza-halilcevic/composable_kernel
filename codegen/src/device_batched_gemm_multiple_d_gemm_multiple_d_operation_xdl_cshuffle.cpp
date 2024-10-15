@@ -105,7 +105,7 @@ std::vector<Operation_Xdl_CShuffle> Operation_Xdl_CShuffle::CreateOperations(
     {
         // clang-format off
         tile_descriptions.push_back(
-  {   256,    256,    128,   32,   128,    32,    8,    8,    4,   32,   32,     2,     4,     4,         1}
+  {   256,    256,   128,    32,   128,    32,   8,   8,    4,   32,   32,     2,     4,     4,        1}
         );
         // clang-format on
     }
@@ -426,7 +426,7 @@ Solution Operation_Xdl_CShuffle::ToSolution() const
          MakeTuple(Transform(this->D1s, [](auto tensor) { return ToString(tensor.layout); }))},
         {"E1Layout", ToString(this->E1.layout)},
 
-        {"ADataType", ToString(this->A0.element)},
+        {"A0DataType", ToString(this->A0.element)},
         {"B0DataType", ToString(this->B0.element)},
         {"Acc0DataType", ToString(this->acc_type)},
         {"D0sDataType",

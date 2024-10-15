@@ -97,9 +97,10 @@ if(DL_KERNELS)
     add_definitions(-DDL_KERNELS)
     set(CK_ENABLE_DL_KERNELS "ON")
 endif()
-option(CK_USE_CODEGEN "Enable codegen library" OFF)
-if(CK_USE_CODEGEN)
-    add_definitions(-DCK_USE_CODEGEN)
+
+if(INSTANCES_ONLY)
+    add_definitions(-DINSTANCES_ONLY)
+    set(CK_ENABLE_INSTANCES_ONLY "ON")
 endif()
 
 include(getopt)
@@ -126,17 +127,9 @@ rocm_setup_version(VERSION ${version})
 list(APPEND CMAKE_PREFIX_PATH ${CMAKE_INSTALL_PREFIX} ${CMAKE_INSTALL_PREFIX}/llvm ${CMAKE_INSTALL_PREFIX}/hip /opt/rocm /opt/rocm/llvm /opt/rocm/hip "$ENV{ROCM_PATH}" "$ENV{HIP_PATH}")
 
 message("GPU_TARGETS= ${GPU_TARGETS}")
-message("GPU_ARCHS= ${GPU_ARCHS}")
-if(GPU_ARCHS)
-    #disable GPU_TARGETS to avoid conflicts, this needs to happen before we call hip package
-    unset(GPU_TARGETS CACHE)
-    unset(AMDGPU_TARGETS CACHE)
-endif()
-if(GPU_TARGETS)
-    set(USER_GPU_TARGETS 1)
-else()
-    set(USER_GPU_TARGETS 0)
-endif()
+
+option(CK_BUILD_HOST_LIB, "Only build the CK JIT Helper Library" OFF)
+
 find_package(hip)
 # No assumption that HIP kernels are launched with uniform block size for backward compatibility
 # SWDEV-413293 and https://reviews.llvm.org/D155213
@@ -144,38 +137,55 @@ math(EXPR hip_VERSION_FLAT "(${hip_VERSION_MAJOR} * 1000 + ${hip_VERSION_MINOR})
 message("hip_version_flat=${hip_VERSION_FLAT}")
 
 message("checking which targets are supported")
-#In order to build just the CK library (without tests and examples) for all supported GPU targets
-#use -D GPU_ARCHS="gfx908;gfx90a;gfx940;gfx941;gfx942;gfx1030;gfx1100;gfx1101;gfx1102;gfx1200;gfx1201" 
-#the GPU_TARGETS flag will be reset in this case in order to avoid conflicts.
-#
-#In order to build CK along with all tests and examples it should be OK to set GPU_TARGETS to just 1 or 2 similar architectures.
-if(NOT ENABLE_ASAN_PACKAGING)
-    if(NOT WIN32 AND ${hip_VERSION_FLAT} LESS 600300000)
-        # WORKAROUND: compiler does not yet fully support gfx12 targets, need to fix version above
-        set(CK_GPU_TARGETS "gfx908;gfx90a;gfx940;gfx941;gfx942;gfx1030;gfx1100;gfx1101;gfx1102")
+#This is the list of targets to be used in case GPU_TARGETS is not set on command line
+#These targets will be filtered and only supported ones will be used
+#Setting GPU_TARGETS on command line will override this list
+if(NOT PROFILER_ONLY)
+    if(NOT ENABLE_ASAN_PACKAGING)
+        #build CK for all supported targets
+        if(NOT WIN32 AND ${hip_VERSION_FLAT} LESS 600300000)
+            # WORKAROUND: compiler does not yet fully support gfx12 targets, need to fix version above
+            rocm_check_target_ids(DEFAULT_GPU_TARGETS
+                TARGETS "gfx908;gfx90a;gfx940;gfx941;gfx942;gfx1030;gfx1100;gfx1101;gfx1102")
+        else()
+            rocm_check_target_ids(DEFAULT_GPU_TARGETS
+                TARGETS "gfx908;gfx90a;gfx940;gfx941;gfx942;gfx1030;gfx1100;gfx1101;gfx1102;gfx1200;gfx1201")
+        endif()
     else()
-        set(CK_GPU_TARGETS "gfx908;gfx90a;gfx940;gfx941;gfx942;gfx1030;gfx1100;gfx1101;gfx1102;gfx1200;gfx1201")
+        #build CK only for xnack-supported targets
+        rocm_check_target_ids(DEFAULT_GPU_TARGETS
+            TARGETS "gfx908:xnack+;gfx90a:xnack+;gfx940:xnack+;gfx941:xnack+;gfx942:xnack+")
+        set(GPU_TARGETS "${DEFAULT_GPU_TARGETS}" CACHE STRING " " FORCE)
     endif()
 else()
-    #build CK only for xnack-supported targets when using ASAN
-    set(CK_GPU_TARGETS "gfx908:xnack+;gfx90a:xnack+;gfx940:xnack+;gfx941:xnack+;gfx942:xnack+")
-endif()
-
-#if user set GPU_ARCHS on the cmake command line, overwrite default target list with user's list
-#otherwise, if user set GPU_TARGETS, use that set of targets
-if(GPU_ARCHS)
-    set(CK_GPU_TARGETS ${GPU_ARCHS})
-else()
-    if(USER_GPU_TARGETS)
-        set(CK_GPU_TARGETS ${GPU_TARGETS})
+    add_definitions(-DPROFILER_ONLY)
+    set(GPU_TARGETS "" CACHE STRING "" FORCE)
+    if(GPU_TARGETS)
+        message(FATAL_ERROR "For PROFILE_ONLY build, please do not set GPU_TARGETS, use GPU_ARCH = gfx90, gfx94, gfx10, gfx11 or gfx12")
     endif()
+    if(GPU_ARCH MATCHES "gfx90")
+        rocm_check_target_ids(DEFAULT_GPU_TARGETS TARGETS "gfx908;gfx90a")
+    elseif(GPU_ARCH MATCHES "gfx94")
+        rocm_check_target_ids(DEFAULT_GPU_TARGETS TARGETS "gfx940;gfx941;gfx942")
+    elseif(GPU_ARCH MATCHES "gfx10")
+        rocm_check_target_ids(DEFAULT_GPU_TARGETS TARGETS "gfx1030")
+    elseif(GPU_ARCH MATCHES "gfx11")
+        rocm_check_target_ids(DEFAULT_GPU_TARGETS TARGETS "gfx1100;gfx1101;gfx1102")
+    elseif(GPU_ARCH MATCHES "gfx12")
+        rocm_check_target_ids(DEFAULT_GPU_TARGETS TARGETS "gfx1200;gfx1201")
+    else()
+        message(FATAL_ERROR "For PROFILE_ONLY build, please specify GPU_ARCH as gfx90, gfx94, gfx10, gfx11 or gfx12")
+    endif()
+    set(GPU_TARGETS "${DEFAULT_GPU_TARGETS}" CACHE STRING " " FORCE)
 endif()
 
-#make sure all the targets on the list are actually supported by the current compiler
-rocm_check_target_ids(SUPPORTED_GPU_TARGETS
-        TARGETS ${CK_GPU_TARGETS})
+message("Supported GPU_TARGETS= ${DEFAULT_GPU_TARGETS}")
 
-message("Building CK for the following targets: ${SUPPORTED_GPU_TARGETS}")
+if(GPU_TARGETS)
+    message("Building CK for the following targets: ${GPU_TARGETS}")
+else()
+    message("Building CK for the default targets: ${DEFAULT_GPU_TARGETS}")
+endif()
 
 if (GPU_TARGETS)
     if (GPU_TARGETS MATCHES "gfx9")
@@ -246,6 +256,7 @@ elseif(CK_PARALLEL_COMPILE_JOBS)
   message(WARNING "Job pooling is only available with Ninja generators.")
 endif()
 
+if (NOT CK_BUILD_HOST_LIB)
 
 option(USE_BITINT_EXTENSION_INT4 "Whether to enable clang's BitInt extension to provide int4 data type." OFF)
 option(USE_OPT_GFX11 "Whether to enable LDS cumode and Wavefront32 mode for GFX11 silicons." OFF)
@@ -267,6 +278,8 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 link_libraries(Threads::Threads)
 
+endif() # NOT CK_BUILD_HOST_LIB
+
 ## C++
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -282,6 +295,8 @@ option(USE_GLIBCXX_ASSERTIONS "Turn on additional c++ library checks." OFF)
 if(USE_GLIBCXX_ASSERTIONS)
   add_compile_options(-Wp,-D_GLIBCXX_ASSERTIONS)
 endif()
+
+if (NOT CK_BUILD_HOST_LIB)
 
 ## HIP
 set(CMAKE_HIP_PLATFORM amd)
@@ -337,6 +352,8 @@ if(CK_hip_VERSION VERSION_GREATER_EQUAL 6.0.23494)
 else()
     add_compile_definitions(__HIP_PLATFORM_HCC__=1)
 endif()
+
+endif() # NOT CK_BUILD_HOST_LIB
 
 ## tidy
 include(EnableCompilerWarnings)
@@ -491,12 +508,16 @@ include_directories(BEFORE
     ${HIP_INCLUDE_DIRS}
 )
 
+if (NOT CK_BUILD_HOST_LIB)
+
 SET(BUILD_DEV ON CACHE BOOL "BUILD_DEV")
 if(BUILD_DEV)
     add_compile_options(-Werror)
     add_compile_options(-Weverything)
 endif()
 message("CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
+
+endif() # NOT CK_BUILD_HOST_LIB
 
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     add_compile_options(-fcolor-diagnostics)
@@ -506,6 +527,8 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERS
 endif()
 
 add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -C ${CMAKE_CFG_INTDIR})
+
+if (NOT CK_BUILD_HOST_LIB)
 
 file(GLOB_RECURSE INSTANCE_FILES "${PROJECT_SOURCE_DIR}/*/device_*_instance.cpp")
 file(GLOB dir_list RELATIVE ${PROJECT_SOURCE_DIR}/library/src/tensor_operation_instance/gpu ${PROJECT_SOURCE_DIR}/library/src/tensor_operation_instance/gpu/*)
@@ -549,7 +572,8 @@ ENDFOREACH()
 add_custom_target(instances DEPENDS utility;${CK_DEVICE_INSTANCES}  SOURCES ${INSTANCE_FILES})
 add_subdirectory(library)
 
-if(NOT GPU_ARCHS AND USER_GPU_TARGETS)
+if(NOT DEFINED INSTANCES_ONLY)
+ if(NOT DEFINED PROFILER_ONLY)
    rocm_package_setup_component(tests
         LIBRARY_NAME composablekernel
         PACKAGE_NAME tests # Prevent -static suffix on package name
@@ -560,20 +584,38 @@ if(NOT GPU_ARCHS AND USER_GPU_TARGETS)
         PACKAGE_NAME examples
    )
    add_subdirectory(example)
-   if(BUILD_TESTING)
-	   add_subdirectory(test)
-   endif()
+   add_subdirectory(test)
+
+   rocm_package_setup_component(profiler
+        LIBRARY_NAME composablekernel
+        PACKAGE_NAME ckprofiler
+   )
+   add_subdirectory(profiler)
+  else()
+    #When building PROFILER_ONLY, label the package with GPU_ARCH
+    rocm_package_setup_component(profiler
+       LIBRARY_NAME composablekernel
+       PACKAGE_NAME ckprofiler_${GPU_ARCH}
+    )
+    add_subdirectory(profiler)
+  endif()
 endif()
 
-rocm_package_setup_component(profiler
-    LIBRARY_NAME composablekernel
-    PACKAGE_NAME ckprofiler
-)
-add_subdirectory(profiler)
-
-if(CK_USE_CODEGEN AND (GPU_TARGETS MATCHES "gfx9" OR GPU_ARCHS))
+if(NOT DEFINED PROFILER_ONLY AND (GPU_TARGETS MATCHES "gfx9" OR DEFINED INSTANCES_ONLY))
   add_subdirectory(codegen)
 endif()
+
+else() # NOT CK_BUILD_HOST_LIB
+
+if(GPU_TARGETS MATCHES "gfx9")
+  rocm_package_setup_component(ck_host
+    LIBRARY_NAME composablekernel
+    PACKAGE_NAME ck_host
+  )
+  add_subdirectory(codegen)
+endif()
+
+endif() # NOT CK_BUILD_HOST_LIB
 
 #Create an interface target for the include only files and call it "composablekernels"
 include(CMakePackageConfigHelpers)
