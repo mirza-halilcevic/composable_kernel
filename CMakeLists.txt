@@ -125,6 +125,8 @@ rocm_setup_version(VERSION ${version})
 
 list(APPEND CMAKE_PREFIX_PATH ${CMAKE_INSTALL_PREFIX} ${CMAKE_INSTALL_PREFIX}/llvm ${CMAKE_INSTALL_PREFIX}/hip /opt/rocm /opt/rocm/llvm /opt/rocm/hip "$ENV{ROCM_PATH}" "$ENV{HIP_PATH}")
 
+option(CK_BUILD_HOST_LIB, "Only build the CK JIT Helper Library" OFF)
+
 message("GPU_TARGETS= ${GPU_TARGETS}")
 message("GPU_ARCHS= ${GPU_ARCHS}")
 if(GPU_ARCHS)
@@ -137,6 +139,7 @@ if(GPU_TARGETS)
 else()
     set(USER_GPU_TARGETS 0)
 endif()
+
 find_package(hip)
 # No assumption that HIP kernels are launched with uniform block size for backward compatibility
 # SWDEV-413293 and https://reviews.llvm.org/D155213
@@ -246,6 +249,7 @@ elseif(CK_PARALLEL_COMPILE_JOBS)
   message(WARNING "Job pooling is only available with Ninja generators.")
 endif()
 
+if (NOT CK_BUILD_HOST_LIB)
 
 option(USE_BITINT_EXTENSION_INT4 "Whether to enable clang's BitInt extension to provide int4 data type." OFF)
 option(USE_OPT_GFX11 "Whether to enable LDS cumode and Wavefront32 mode for GFX11 silicons." OFF)
@@ -267,6 +271,8 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 link_libraries(Threads::Threads)
 
+endif() # NOT CK_BUILD_HOST_LIB
+
 ## C++
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -282,6 +288,8 @@ option(USE_GLIBCXX_ASSERTIONS "Turn on additional c++ library checks." OFF)
 if(USE_GLIBCXX_ASSERTIONS)
   add_compile_options(-Wp,-D_GLIBCXX_ASSERTIONS)
 endif()
+
+if (NOT CK_BUILD_HOST_LIB)
 
 ## HIP
 set(CMAKE_HIP_PLATFORM amd)
@@ -337,6 +345,8 @@ if(CK_hip_VERSION VERSION_GREATER_EQUAL 6.0.23494)
 else()
     add_compile_definitions(__HIP_PLATFORM_HCC__=1)
 endif()
+
+endif() # NOT CK_BUILD_HOST_LIB
 
 ## tidy
 include(EnableCompilerWarnings)
@@ -491,12 +501,16 @@ include_directories(BEFORE
     ${HIP_INCLUDE_DIRS}
 )
 
+if (NOT CK_BUILD_HOST_LIB)
+
 SET(BUILD_DEV ON CACHE BOOL "BUILD_DEV")
 if(BUILD_DEV)
     add_compile_options(-Werror)
     add_compile_options(-Weverything)
 endif()
 message("CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
+
+endif() # NOT CK_BUILD_HOST_LIB
 
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     add_compile_options(-fcolor-diagnostics)
@@ -506,6 +520,8 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERS
 endif()
 
 add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -C ${CMAKE_CFG_INTDIR})
+
+if (NOT CK_BUILD_HOST_LIB)
 
 file(GLOB_RECURSE INSTANCE_FILES "${PROJECT_SOURCE_DIR}/*/device_*_instance.cpp")
 file(GLOB dir_list RELATIVE ${PROJECT_SOURCE_DIR}/library/src/tensor_operation_instance/gpu ${PROJECT_SOURCE_DIR}/library/src/tensor_operation_instance/gpu/*)
@@ -574,6 +590,18 @@ add_subdirectory(profiler)
 if(CK_USE_CODEGEN AND (GPU_TARGETS MATCHES "gfx9" OR GPU_ARCHS))
   add_subdirectory(codegen)
 endif()
+
+else() # NOT CK_BUILD_HOST_LIB
+
+if(GPU_TARGETS MATCHES "gfx9")
+  rocm_package_setup_component(ck_host
+    LIBRARY_NAME composablekernel
+    PACKAGE_NAME ck_host
+  )
+  add_subdirectory(codegen)
+endif()
+
+endif() # NOT CK_BUILD_HOST_LIB
 
 #Create an interface target for the include only files and call it "composablekernels"
 include(CMakePackageConfigHelpers)
