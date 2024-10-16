@@ -836,9 +836,7 @@ struct DeviceBatchedGemmSoftmaxGemm_Xdl_CShuffle
 
         return str.str();
     }
-<<<<<<< HEAD
 #endif
-=======
 
     template <class ADesc, class BDesc, class B1Desc, class CDesc>
     struct Descriptor
@@ -1101,7 +1099,6 @@ struct DeviceBatchedGemmSoftmaxGemm_Xdl_CShuffle
                 desc.c0_matrix_mask);
         }
     }
->>>>>>> origin/ck_host_lib
 };
 
 } // namespace device
