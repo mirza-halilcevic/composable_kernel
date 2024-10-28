@@ -65,6 +65,6 @@ rocm_install(
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/composable_kernel
 )
 
-if (NOT CK_BUILD_HOST_LIB)
+if(BUILD_TESTING)
     add_subdirectory(test)
 endif()
