@@ -53,7 +53,7 @@ TEST_CASE(test_problem_kernel)
 
     auto solutions = prob.GetSolutions("gfx90a", prologue, epilogue);
     std::cout << "Num solutions: " << solutions.size() << std::endl;
-    for(auto i = 0; i < solutions.size(); i += 2) // TODO every second solution fails
+    for(auto i = 0; i < solutions.size(); ++i)
     {
         std::cout << "Testing solution " << std::to_string(i + 1) << std::endl;
         auto&& solution = solutions[i];
