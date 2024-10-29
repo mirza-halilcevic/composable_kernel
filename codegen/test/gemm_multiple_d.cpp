@@ -18,21 +18,21 @@ using half = _Float16;
 const std::string gemm_compile_check = R"__ck__(
 #include <${include}>
 
-extern "C" __global__ void f(const ck::half_t* a, const ck::half_t* b, ck::half_t* c) {
+extern "C" __global__ void f(const ck::half_t* a, const ck::half_t* b, ck::half_t* c, ck::half_t* d) {
     using G = ${template};
-    constexpr auto desc = G::make_descriptor(ck::make_naive_tensor_descriptor_packed(ck::make_tuple(${m}, ${k})),
+    auto desc = G::make_descriptor(ck::make_naive_tensor_descriptor_packed(ck::make_tuple(${m}, ${k})),
                                              ck::make_naive_tensor_descriptor(ck::make_tuple(${n}, ${k}), ck::make_tuple(1, ${n})),
-                                             ck::make_tuple(),
+                                             ck::make_tuple(ck::make_naive_tensor_descriptor_packed(ck::make_tuple(${m}, ${n}))),
                                              ck::make_naive_tensor_descriptor_packed(ck::make_tuple(${m}, ${n})));
 
-    static_assert(desc.IsValid(), "Invalid ck gemm.");
+    //static_assert(desc.IsValid(), "Invalid ck gemm.");
 
-    if constexpr(desc.IsValid())
+    if (desc.IsValid())
     {
         ${template}::Run(desc,
                a,
                b,
-               ck::make_tuple(),
+               ck::make_tuple(static_cast<const ck::half_t*>(d)),
                c);
     }
 }
@@ -49,6 +49,11 @@ TEST_CASE(test_problem_kernel)
     auto a = to_gpu(generate_buffer<half>(1024 * 1024, 0));
     auto b = to_gpu(generate_buffer<half>(1024 * 1024, 1));
     auto c = to_gpu(generate_buffer<half>(1024 * 1024, 2));
+    auto d = to_gpu(generate_buffer<half>(1024 * 1024, 3));
+
+    prob.DsTrans.push_back(false);
+    prob.DsDataType.push_back(ck::host::DataType::Half);
+    prob.CDEElementOp = "ck::tensor_operation::element_wise::Add";
 
     std::string epilogue = "";
     std::string prologue = "";
@@ -75,7 +80,7 @@ TEST_CASE(test_problem_kernel)
         auto n_per_block    = solution.GetTemplateParameter<std::size_t>("NPerBlock");
         auto grid_size      = ck::host::integer_divide_ceil(prob.M, m_per_block) *
                          ck::host::integer_divide_ceil(prob.N, n_per_block);
-        k.launch(nullptr, grid_size * block_size, block_size)(a.data(), b.data(), c.data());
+        k.launch(nullptr, grid_size * block_size, block_size)(a.data(), b.data(), c.data(), d.data());
 
         CHECK(report(solution, check(rtc::from_gpu(c))));
     }

@@ -437,6 +437,7 @@ struct DeviceBatchedGemmMultipleDGemmMultipleD_Xdl_CShuffle
         index_t BatchStrideE1_;
     };
 
+#ifndef __HIPCC_RTC__
     using A0GridDesc_M_K  = decltype(MakeA0GridDescriptor_M_K(1, 1, 1));
     using B0GridDesc_N_K  = decltype(MakeB0GridDescriptor_N_K(1, 1, 1));
     using D0sGridDesc_M_N = remove_cvref_t<decltype(MakeD0sGridDescriptor_M_N({}, {}, {}))>;
@@ -522,7 +523,6 @@ struct DeviceBatchedGemmMultipleDGemmMultipleD_Xdl_CShuffle
         remove_cvref_t<decltype(GridwiseGemm::MakeDefaultB1GridDescriptor_BK0_N_BK1(
             B1GridDesc_N_K{}))>;
 
-#ifndef __HIPCC_RTC__
     // Argument
     struct Argument : public BaseArgument
     {
@@ -1268,7 +1268,7 @@ struct DeviceBatchedGemmMultipleDGemmMultipleD_Xdl_CShuffle
                                D1sPointer p_d1s_grid,
                                E1DataType* __restrict__ p_e1_grid)
     {
-        __shared__ char p_shared_block[GridwiseGemm::GetSharedMemoryNumberOfByte()];
+        __shared__ char p_shared_block[Desc::GridwiseGemm::GetSharedMemoryNumberOfByte()];
 #ifndef __HIPCC_RTC__
         assert(desc.IsValid());
 #endif
