@@ -50,23 +50,16 @@ struct PassThroughPack2
     constexpr const static bool is_pack2_invocable = true;
 };
 
-struct PassThrough : public UnaryOpBase
+struct PassThrough
 {
-
-    __host__ __device__ inline void operator()(float& y, const float& x) const final { y = x; }
-
-    __host__ __device__ inline void operator()(double& y, const double& x) const final { y = x; }
-
-    __host__ __device__ inline void operator()(int32_t& y, const int32_t& x) const final { y = x; }
-
-    __host__ __device__ inline void operator()(int8_t& y, const int8_t& x) const final { y = x; }
-
-    __host__ __device__ inline void operator()(half_t& y, const half_t& x) const final { y = x; }
-
-    __host__ __device__ inline void operator()(bhalf_t& y, const bhalf_t& x) const final { y = x; }
-
     template <typename Y, typename X>
     __host__ __device__ void operator()(Y& y, const X& x) const;
+
+    template <>
+    __host__ __device__ void operator()<double, double>(double& y, const double& x) const
+    {
+        y = x;
+    }
 
     template <>
     __host__ __device__ void operator()<float, double>(float& y, const double& x) const
@@ -81,9 +74,33 @@ struct PassThrough : public UnaryOpBase
     }
 
     template <>
+    __host__ __device__ void operator()<float, float>(float& y, const float& x) const
+    {
+        y = x;
+    }
+
+    template <>
+    __host__ __device__ void operator()<half_t, half_t>(half_t& y, const half_t& x) const
+    {
+        y = x;
+    }
+
+    template <>
     __host__ __device__ void operator()<half_t, float>(half_t& y, const float& x) const
     {
         y = type_convert<half_t>(x);
+    }
+
+    template <>
+    __host__ __device__ void operator()<bhalf_t, bhalf_t>(bhalf_t& y, const bhalf_t& x) const
+    {
+        y = x;
+    }
+
+    template <>
+    __host__ __device__ void operator()<int32_t, int32_t>(int32_t& y, const int32_t& x) const
+    {
+        y = x;
     }
 
     template <>
@@ -108,6 +125,12 @@ struct PassThrough : public UnaryOpBase
     __host__ __device__ void operator()<float, half_t>(float& y, const half_t& x) const
     {
         y = type_convert<float>(x);
+    }
+
+    template <>
+    __host__ __device__ void operator()<int8_t, int8_t>(int8_t& y, const int8_t& x) const
+    {
+        y = x;
     }
 
     template <>
@@ -1520,15 +1543,15 @@ struct DynamicUnaryOp
 
     __host__ __device__ DynamicUnaryOp(const Sigmoid&&) { unary_op_type_ = UnaryOpType::Sigmoid; }
 
-    __host__ __device__ DynamicUnaryOp(const PassThrough&)
-    {
-        unary_op_type_ = UnaryOpType::PassThrough;
-    }
+    // __host__ __device__ DynamicUnaryOp(const PassThrough&)
+    // {
+    //     unary_op_type_ = UnaryOpType::PassThrough;
+    // }
 
-    __host__ __device__ DynamicUnaryOp(const PassThrough&&)
-    {
-        unary_op_type_ = UnaryOpType::PassThrough;
-    }
+    // __host__ __device__ DynamicUnaryOp(const PassThrough&&)
+    // {
+    //     unary_op_type_ = UnaryOpType::PassThrough;
+    // }
 
     __host__ __device__ DynamicUnaryOp(const Logistic& logistic)
     {
@@ -1641,7 +1664,7 @@ struct DynamicUnaryOp
         {
         case(UnaryOpType::Swish): unary_op_ptr_ = new Swish(beta); break;
         case(UnaryOpType::Sigmoid): unary_op_ptr_ = new Sigmoid; break;
-        case(UnaryOpType::PassThrough): unary_op_ptr_ = new PassThrough; break;
+        // case(UnaryOpType::PassThrough): unary_op_ptr_ = new PassThrough; break;
         case(UnaryOpType::Logistic): unary_op_ptr_ = new Logistic(alpha); break;
         case(UnaryOpType::TanH): unary_op_ptr_ = new TanH; break;
         case(UnaryOpType::Relu): unary_op_ptr_ = new Relu; break;
@@ -1671,7 +1694,7 @@ struct DynamicUnaryOp
         {
         case(UnaryOpType::Swish): Swish{}.operator()(y, x); break;
         case(UnaryOpType::Sigmoid): Sigmoid{}.operator()(y, x); break;
-        case(UnaryOpType::PassThrough): PassThrough{}.operator()(y, x); break;
+        // case(UnaryOpType::PassThrough): PassThrough{}.operator()(y, x); break;
         case(UnaryOpType::Logistic): Logistic{}.operator()(y, x); break;
         case(UnaryOpType::TanH): TanH{}.operator()(y, x); break;
         case(UnaryOpType::Relu): Relu{}.operator()(y, x); break;
@@ -1702,7 +1725,7 @@ struct DynamicUnaryOp
     {
         Swish,
         Sigmoid,
-        PassThrough,
+        // PassThrough,
         Logistic,
         TanH,
         Relu,
