@@ -14,10 +14,10 @@ const std::string gemm_compile_check = R"__ck__(
 
 extern "C" __global__ void f(const ck::half_t* a, const ck::half_t* b, const ck::half_t* b1, ck::half_t* c) {
     using G = ${template};
-    constexpr auto desc = G::make_descriptor(ck::make_naive_tensor_descriptor(ck::make_tuple(${m}, ${k}), ck::make_tuple(${m}, 1)),
-                                             ck::make_naive_tensor_descriptor(ck::make_tuple(${n}, ${k}), ck::make_tuple(${n}, 1)),
-                                             ck::make_naive_tensor_descriptor(ck::make_tuple(${n}, ${o}), ck::make_tuple(1, ${n})),
-                                             ck::make_naive_tensor_descriptor(ck::make_tuple(${m}, ${o}), ck::make_tuple(${m}, 1)));
+    constexpr auto desc = G::make_descriptor(ck::make_naive_tensor_descriptor_packed(ck::make_tuple(${m}, ${k})),
+                                             ck::make_naive_tensor_descriptor(ck::make_tuple(${n}, ${k}), ck::make_tuple(1, ${n})),
+                                             ck::make_naive_tensor_descriptor(ck::make_tuple(${o}, ${n}), ck::make_tuple(1, ${o})),
+                                             ck::make_naive_tensor_descriptor_packed(ck::make_tuple(${m}, ${o})));
 
     static_assert(desc.IsValid(), "Invalid ck gemm.");
 
@@ -71,9 +71,9 @@ TEST_CASE(test_problem_kernel)
         auto k              = rtc::compile_kernel(srcs, options);
         auto block_size     = solution.GetTemplateParameter<std::size_t>("BlockSize");
         auto m_per_block    = solution.GetTemplateParameter<std::size_t>("Gemm01MPerBlock");
-        auto n_per_block    = solution.GetTemplateParameter<std::size_t>("Gemm1NPerBlock");
+        auto n1_per_block   = solution.GetTemplateParameter<std::size_t>("Gemm1NPerBlock");
         auto grid_size      = ck::host::integer_divide_ceil(prob.M, m_per_block) *
-                         ck::host::integer_divide_ceil(prob.N, n_per_block);
+                         ck::host::integer_divide_ceil(prob.O, n1_per_block);
         k.launch(nullptr, grid_size * block_size, block_size)(
             a.data(), b.data(), b1.data(), c.data());
 
